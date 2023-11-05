@@ -1,0 +1,87 @@
+# Importing the libraries to access the app and edit pdfs
+import os
+import tkinter as tk
+from tkinter import filedialog
+from PyPDF2 import PdfFileReader, PdfFileWriter
+
+# Creating a function to split the pdf file
+# You can edit the chunk_size_bytes = 4 (which results into 4mb max file size)
+def split_pdf_by_size(input_path, output_dir, chunk_size_bytes=4 * 1024 * 1024):
+   with open(input_path, 'rb') as file:
+       reader = PdfFileReader(file)
+       num_pages = reader.getNumPages()
+
+       pdf_name = os.path.splitext(os.path.basename(input_path))[0]
+       output_folder_path = os.path.join(output_dir, pdf_name)
+       os.makedirs(output_folder_path, exist_ok=True)
+
+       current_chunk_index = 1
+       current_chunk_size = 0
+       current_chunk_writer = PdfFileWriter()
+
+       for page_num in range(num_pages):
+           page = reader.getPage(page_num)
+           current_chunk_writer.addPage(page)
+
+           temp_output_path = os.path.join(output_folder_path, f"{pdf_name}_{current_chunk_index}.pdf")
+           with open(temp_output_path, 'wb') as output_file:
+               current_chunk_writer.write(output_file)
+
+           temp_output_size = os.path.getsize(temp_output_path)
+           if temp_output_size > chunk_size_bytes or page_num == num_pages - 1:
+               current_chunk_index += 1
+               current_chunk_writer = PdfFileWriter()
+
+# Creating a browse pdf function using filedialog
+def browse_pdf():
+   filename = filedialog.askopenfilename(initialdir="./PDF", title="Select PDF", filetypes=(("PDF files", "*.pdf"),))
+   pdf_entry.delete(0, tk.END)
+   pdf_entry.insert(0, filename)
+
+# Creating a browse output function using filedialog
+def browse_output_location():
+   dirname = filedialog.askdirectory(initialdir="./Output", title="Select Output Location")
+   output_entry.delete(0, tk.END)
+   output_entry.insert(0, dirname)
+
+# Error Handling
+def process_pdf():
+   pdf_path = pdf_entry.get()
+   output_dir = output_entry.get()
+   try:
+       if not os.path.isfile(pdf_path):
+           raise Exception("Invalid PDF file path.")
+       if not os.path.isdir(output_dir):
+           raise Exception("Invalid output directory.")
+       split_pdf_by_size(pdf_path, output_dir)
+       result_label.config(text="PDF successfully split into chunks.")
+   except Exception as e:
+       result_label.config(text=f"Error: {e}")
+
+# Create main window
+window = tk.Tk()
+window.title("PDF Splitter App")
+
+# Create widgets
+pdf_label = tk.Label(window, text="Select PDF:")
+pdf_label.pack()
+pdf_entry = tk.Entry(window, width=50)
+pdf_entry.pack()
+pdf_button = tk.Button(window, text="Browse", command=browse_pdf)
+pdf_button.pack()
+
+output_label = tk.Label(window, text="Select Output Location:")
+output_label.pack()
+output_entry = tk.Entry(window, width=50)
+output_entry.pack()
+output_button = tk.Button(window, text="Browse", command=browse_output_location)
+output_button.pack()
+
+process_button = tk.Button(window, text="Split PDF", command=process_pdf)
+process_button.pack()
+
+result_label = tk.Label(window, text="")
+result_label.pack()
+
+# Run the app
+window.mainloop()
